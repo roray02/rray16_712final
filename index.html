@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Restriction Enzyme Selector</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <h1>Smart Restriction Enzyme Selector (SRES)</h1>
+
+    <form action="../sres_main.cgi" method="POST">
+        <label for="sequence">Paste your DNA sequence (plain text or FASTA):</label><br>
+        <textarea id="sequence" name="sequence" rows="10" cols="80" required></textarea><br><br>
+
+        <label>Preferred end type:</label><br>
+        <input type="radio" id="any" name="end_type" value="any" checked>
+        <label for="any">Any</label><br>
+        <input type="radio" id="sticky" name="end_type" value="sticky">
+        <label for="sticky">Sticky Ends Only</label><br>
+        <input type="radio" id="blunt" name="end_type" value="blunt">
+        <label for="blunt">Blunt Ends Only</label><br><br>
+
+        <input type="submit" value="Submit">
+    </form>
+
+</body>
+</html>
