@@ -14,7 +14,7 @@ The tool uses a parsed and filtered REBASE database and presents results through
 
 ## Project Directory
 
-This project is hosted at: `/var/www/html/rray16/final`
+This project is hosted at: `/var/www/html/rray16/final` on our class server.
 
 ### Key Files and Directories:
 
