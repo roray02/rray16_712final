@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Enzyme Pair Results</title>
+  <style>
+    body {
+      display: flex;
+      font-family: Arial, sans-serif;
+      gap: 30px;
+      padding: 20px;
+      align-items: flex-start;
+      overflow-x:hidden;
+    }
+
+    #left {
+      width: 65%;
+      overflow-y: auto;
+      max-height: 90vh;
+    }
+
+    #right {
+      width: 35%;
+      position: sticky;
+      top: 20px;
+      align-self: flex-start;
+      overflow-wrap: break-word;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: center;
+    }
+
+    .pair-row:hover {
+      background-color: #eef;
+      cursor: pointer;
+    }
+
+    .pair-row.selected {
+      background-color: #cce0ff;
+      font-weight: bold;
+    }
+
+    .cut-region {
+      font-weight: bold;
+      padding: 1px 2px;
+      border-radius: 2px;
+    }
+
+    .highlight-5p {
+      background-color: #aaf;
+    }
+
+    .highlight-3p {
+      background-color: #faa;
+    }
+
+    .overhang-label {
+      font-size: 0.8em;
+      margin-left: 4px;
+      color: #444;
+      font-style: italic;
+    }
+
+    .sequence-block {
+      font-family: monospace;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+      font-size: 1.3em;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div id="legend" style="margin-bottom: 20px; font-size: 0.95em;">
+    <h3>Legend</h3>
+    <p><strong>Overhang Compatibility:</strong><br>
+      ✅ Matching overhangs (e.g., 5′/5′, 3′/3′, blunt/blunt) are ligation-compatible.<br>
+      ❌ Mismatched overhangs (e.g., 5′/3′ or blunt/sticky) are generally incompatible unless modified.
+    </p>
+    <p><strong>Source Codes:</strong><br>
+      B = Thermo Fisher Scientific<br>
+      C = Minotech<br>
+      E = Agilent<br>
+      I = SibEnzyme<br>
+      J = Nippon Gene Co.<br>
+      K = Takara Bio<br>
+      M = Roche Custom Biotech <br>
+      N = New England Biolabs<br>
+      O = Toyobo<br>
+      Q = Molecular Biology Resources - CHIMERx<br>
+      R = Promega<br>
+      S = Sigma Chemical<br>
+      V = Vivantis<br>
+      X = EURx<br>
+      
+    </p>
+    <p><strong>Overhang Markers:</strong><br>
+      <span class="overhang-label">5′</span> = 5′ overhang<br>
+      <span class="overhang-label">3′</span> = 3′ overhang<br>
+      <span class="overhang-label">blunt</span> = blunt end<br>
+    </p>        
+  </div> 
+  <div id="left">
+    <h2>Compatible Enzyme Pairs</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>5′ Enzyme</th>
+          <th>3′ Enzyme</th>
+          <th>Overhangs</th>
+          <th>Ligation Compatible?</th>
+          <th>Sources</th>
+        </tr>        
+      </thead>
+      <tbody id="enzyme-table">
+        {% for pair in enzyme_pairs %}
+        <tr class="pair-row"
+          data-site1="{{ pair.site1 }}"
+          data-site2="{{ pair.site2 }}"
+          data-overhangs="{{ pair.overhangs }}"
+          data-sources="{{ pair.sources }}"
+          data-regions="{{ pair.cut_ids | join(',') }}">
+          <td>{{ pair.enzyme_5 }}</td>
+          <td>{{ pair.enzyme_3 }}</td>
+          <td>{{ pair.overhangs }}</td>
+          <td>
+            {% if pair.ligation_compatible %}✅ Yes{% else %}❌ No{% endif %}
+          </td>
+          <td>{{ pair.sources }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div id="right">
+    <h2>Sequence Visualization</h2>
+    <pre class="sequence-block" id="sequence-block">{{ sequence|safe }}</pre>
+    <div id="source-links"></div>
+  </div>
+
+  <script>
+    const sequenceBlock = document.getElementById("sequence-block");
+    const originalSequence = sequenceBlock.textContent;
+    
+    function escapeRegex(str) {
+      return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    
+    function annotateSite(seq, site, overhangType, colorClass, findLast = false) {
+      const safeSite = escapeRegex(site);
+      const regex = new RegExp(safeSite, 'gi');
+      const matches = [...seq.matchAll(regex)];
+    
+      if (matches.length === 0) return seq;
+    
+      const index = findLast ? matches[matches.length - 1].index : matches[0].index;
+      if (index === undefined) return seq;
+    
+      const before = seq.slice(0, index);
+      const match = seq.slice(index, index + site.length);
+      const after = seq.slice(index + site.length);
+      const overhangLabel = `<span class="overhang-label">${overhangType}</span>`;
+    
+      return before + `<span class="cut-region ${colorClass}" title="${overhangType} overhang">${match}${overhangLabel}</span>` + after;
+    }
+    
+    document.querySelectorAll(".pair-row").forEach(row => {
+      row.addEventListener("click", () => {
+        document.querySelectorAll(".pair-row").forEach(r => r.classList.remove("selected"));
+        row.classList.add("selected");
+
+        const site1 = row.dataset.site1;
+        const site2 = row.dataset.site2;
+        const overhangs = row.dataset.overhangs.split(" / ");
+        const type1 = overhangs[0];
+        const type2 = overhangs[1];
+    
+        let seq = originalSequence;
+        seq = annotateSite(seq, site1, type1, 'highlight-5p', false);
+        seq = annotateSite(seq, site2, type2, 'highlight-3p', true);
+        sequenceBlock.innerHTML = seq;
+
+        const sources = row.dataset.sources;
+
+        const linkMap = {
+          B: { name: "Thermo Fisher Scientific", url: "https://www.thermofisher.com/us/en/home/brands/thermo-scientific/molecular-biology/thermo-scientific-restriction-modifying-enzymes/restriction-enzymes-thermo-scientific/conventional-restriction-enzymes-thermo-scientific.html" },
+          C: { name: "Minotech Biotechnology", url: "https://minotech.gr/index.php/products?filter_catid=46&search=" },
+          E: { name: "Agilent Technologies", url: "https://www.agilent.com/en/product/mutagenesis-cloning/enzymes-inhibitors-kits/markers-restriction-enzymes" },
+          I: { name: "SibEnzyme Ltd.", url: "https://sibenzyme.com/en/re/" },
+          J: { name: "Nippon Gene Co., Ltd.", url: "https://www.nippongene.com/english/product/restriction-endonucleases/restriction-endonucleases.html" },
+          K: { name: "Takara Bio Inc.", url: "https://www.takarabio.com/products/cloning/restriction-enzymes?srsltid=AfmBOoqKtSr80FPCSglAoyq87KTPG3xED7fhtSomvlRVWubWkFb3SBra" },
+          M: { name: "Roche Custom Biotech", url: "https://custombiotech.roche.com/global/en/portfolio/all-products.html#products" },
+          N: { name: "New England Biolabs", url: "https://www.neb.com/en-us/products/restriction-endonucleases?srsltid=AfmBOorrjUZcwf22bRBNv6tJPGMQDg0l0ise1TwRYV0CUGV_dyMU7PpT#ProductListing" },
+          O: { name: "Toyobo Biochemicals", url: "https://www.toyobo-global.com/seihin/xr/enzyme/enzyme_list/index.html" },
+          Q: { name: "CHIMERx", url: "https://www.chimerx.com/products/restriction-endonucleases" },
+          R: { name: "Promega Corporation", url: "https://www.promega.com/products/cloning-and-dna-markers/restriction-enzymes/" },
+          S: { name: "Sigma Chemical Corporation", url: "https://www.sigmaaldrich.com/US/en/technical-documents/technical-article/genomics/sequencing/restriction-enzymes?srsltid=AfmBOorlTZOWWtaZ5mBU0Z12j9NpYhYhzbGz_eRrhsRN010owRFXSSil" },
+          V: { name: "Vivantis Technologies", url: "https://www.vivantechnologies.com/images/stories/RE%20Poster.pdf" },
+          X: { name: "EURx Ltd.", url: "https://eurx.com.pl/products/restriction-endonucleases/" }
+        };
+
+        function renderSourceLinks(sourceString) {
+          const allCodes = sourceString.split('/');
+          const html = allCodes.map(codeStr => {
+            return codeStr.trim().split('').map(code => {
+              const entry = linkMap[code];
+              if (entry) {
+                return `<a href="${entry.url}" target="_blank">${code} = ${entry.name}</a>`;
+              } else {
+                return `${code} = Unknown`;
+              }
+            }).join('<br>');
+          }).join('<br><br>');
+
+          document.getElementById("source-links").innerHTML = `<strong>Source Links:</strong><br>${html}`;
+        }
+        renderSourceLinks(sources); 
+
+      });
+    });
+    </script>
+           
+</body>
+</html>
